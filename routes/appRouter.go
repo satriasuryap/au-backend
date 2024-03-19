@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AppRoutesRoutes(incomingRoutes *gin.Engine) {
+func AppRoutes(incomingRoutes *gin.Engine) {
 
 	incomingRoutes.GET("/app", controller.GetApps())
 	incomingRoutes.GET("/app/:app_id", controller.GetApp())

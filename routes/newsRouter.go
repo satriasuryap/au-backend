@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewsRoutesRoutes(incomingRoutes *gin.Engine) {
+func NewsRoutes(incomingRoutes *gin.Engine) {
 
 	incomingRoutes.GET("/news", controller.GetNews())
 	incomingRoutes.GET("/news/:news_id", controller.GetNew())
