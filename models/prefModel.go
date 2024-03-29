@@ -6,6 +6,7 @@ import (
 
 type Prefs struct {
 	ID      primitive.ObjectID `bson:"_id" json:"_id"`
-	User_id string             `json:"user_id"`
-	Apps_id string             `json:"apps_id"`
+	User_id *string            `json:"user_id"`
+	Apps_id *string            `json:"apps_id"`
+	Pref_id string             `json:"pref_id"`
 }

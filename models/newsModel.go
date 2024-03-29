@@ -8,9 +8,10 @@ import (
 
 type News struct {
 	ID            primitive.ObjectID `bson:"_id" json:"_id"`
-	Title         string             `json:"username" gorm:"unique" bson:"username,omitempty"`
-	Content       string             `json:"email" gorm:"unique" bson:"email,omitempty"`
+	Title         *string            `json:"username" gorm:"unique" bson:"username,omitempty"`
+	Content       *string            `json:"email" gorm:"unique" bson:"email,omitempty"`
 	URL           string             `json:"url"`
 	CreatedAt     time.Time          `json:"createdat" bson:"createat"`
 	DeactivatedAt time.Time          `json:"updatedat" bson:"updatedat"`
+	News_id       string             `json:"news_id"`
 }
