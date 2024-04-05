@@ -14,16 +14,15 @@ func DBinstance() *mongo.Client {
 	MongoDB := "mongodb://localhost:27017"
 	fmt.Print(MongoDB)
 
-	client, err := mongo.Connect(options.Client().ApplyURI(MongoDB))
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(MongoDB))
 	if err != nil {
 		log.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	err = client.Connect(ctx)
-
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,6 +35,5 @@ var Client *mongo.Client = DBinstance()
 
 func OpenCollection(client *mongo.Client, collectionName string) *mongo.Collection {
 	var collection *mongo.Collection = client.Database("au-backend").Collection(collectionName)
-
 	return collection
 }

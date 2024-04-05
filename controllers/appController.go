@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"golang-au-backend/database"
 	"golang-au-backend/models"
 	"log"
@@ -57,6 +56,7 @@ func CreateApp() gin.HandlerFunc {
 		var apps models.Apps
 
 		if err := c.BindJSON(&apps); err != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -64,6 +64,7 @@ func CreateApp() gin.HandlerFunc {
 		validationErr := validate.Struct(apps)
 
 		if validationErr != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
@@ -77,7 +78,8 @@ func CreateApp() gin.HandlerFunc {
 		result, insertErr := AppsCollection.InsertOne(ctx, apps)
 
 		if insertErr != nil {
-			msg := fmt.Sprintf("apps item was not created")
+			cancel()
+			msg := "apps item was not created"
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
@@ -96,6 +98,7 @@ func UpdateApp() gin.HandlerFunc {
 		appsId := c.Param("apps_id")
 
 		if err := c.BindJSON(&apps); err != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -125,7 +128,8 @@ func UpdateApp() gin.HandlerFunc {
 		)
 
 		if err != nil {
-			msg := fmt.Sprintf("table item update failed")
+			cancel()
+			msg := "table item update failed"
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}

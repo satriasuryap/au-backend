@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"golang-au-backend/database"
 	"golang-au-backend/models"
 	"log"
@@ -57,6 +56,7 @@ func CreateNews() gin.HandlerFunc {
 		var news models.News
 
 		if err := c.BindJSON(&news); err != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -64,6 +64,7 @@ func CreateNews() gin.HandlerFunc {
 		validationErr := validate.Struct(news)
 
 		if validationErr != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
@@ -77,7 +78,8 @@ func CreateNews() gin.HandlerFunc {
 		result, insertErr := newsCollection.InsertOne(ctx, news)
 
 		if insertErr != nil {
-			msg := fmt.Sprintf("news item was not created")
+			cancel()
+			msg := "news item was not created"
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
@@ -96,6 +98,7 @@ func UpdateNews() gin.HandlerFunc {
 		newsId := c.Param("news_id")
 
 		if err := c.BindJSON(&news); err != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -128,7 +131,8 @@ func UpdateNews() gin.HandlerFunc {
 		)
 
 		if err != nil {
-			msg := fmt.Sprintf("table item update failed")
+			cancel()
+			msg := "table item update failed"
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}

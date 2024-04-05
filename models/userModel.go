@@ -17,6 +17,6 @@ type User struct {
 	Refresh_Token *string            `json:"refresh_token"`
 	CreatedAt     time.Time          `json:"createdat" bson:"createat"`
 	DeactivatedAt time.Time          `json:"deactivateat" bson:"deactivateat"`
-	UpdatedAt     time.Time          `json: "updatedat" bson:"updatedat"`
+	UpdatedAt     time.Time          `json:"updatedat" bson:"updatedat"`
 	User_id       string             `json:"user_id"`
 }

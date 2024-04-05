@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"golang-au-backend/database"
 	helper "golang-au-backend/helpers"
 	"golang-au-backend/models"
@@ -37,7 +36,6 @@ func GetUsers() gin.HandlerFunc {
 		}
 
 		startIndex := (page - 1) * recordPerPage
-		startIndex, err = strconv.Atoi(c.Query("startIndex"))
 
 		matchStage := bson.D{{Key: "$match", Value: bson.D{{}}}}
 		projectStage := bson.D{
@@ -81,10 +79,12 @@ func GetUser() gin.HandlerFunc {
 
 func SignUp() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 		var user models.User
 
 		if err := c.BindJSON(&user); err != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -122,7 +122,7 @@ func SignUp() gin.HandlerFunc {
 
 		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
 		if insertErr != nil {
-			msg := fmt.Sprintf("User item was not created")
+			msg := "User item was not created"
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
@@ -140,6 +140,7 @@ func Login() gin.HandlerFunc {
 		var foundUser models.User
 
 		if err := c.BindJSON(&user); err != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -171,7 +172,7 @@ func VerifyPassword(userPassword string, providedPassword string) (bool, string)
 	msg := ""
 
 	if err != nil {
-		msg = fmt.Sprintf("login or password is incorrect")
+		msg = "login or password is incorrect"
 		check = false
 	}
 	return check, msg

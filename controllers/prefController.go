@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"golang-au-backend/database"
 	"golang-au-backend/models"
 	"log"
@@ -57,6 +56,7 @@ func CreatePref() gin.HandlerFunc {
 		var pref models.Prefs
 
 		if err := c.BindJSON(&pref); err != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -64,6 +64,7 @@ func CreatePref() gin.HandlerFunc {
 		validationErr := validate.Struct(pref)
 
 		if validationErr != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
@@ -77,7 +78,8 @@ func CreatePref() gin.HandlerFunc {
 		result, insertErr := prefsCollection.InsertOne(ctx, pref)
 
 		if insertErr != nil {
-			msg := fmt.Sprintf("Table item was not created")
+			cancel()
+			msg := "Table item was not created"
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
@@ -96,6 +98,7 @@ func UpdatePref() gin.HandlerFunc {
 		prefId := c.Param("pref_id")
 
 		if err := c.BindJSON(&pref); err != nil {
+			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -125,7 +128,8 @@ func UpdatePref() gin.HandlerFunc {
 		)
 
 		if err != nil {
-			msg := fmt.Sprintf("table item update failed")
+			cancel()
+			msg := "table item update failed"
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}

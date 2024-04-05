@@ -8,5 +8,5 @@ type Apps struct {
 	ID      primitive.ObjectID `bson:"_id" json:"_id"`
 	Name    string             `json:"appname" gorm:"unique" bson:"username,omitempty"`
 	Icon    *string            `json:"icon"`
-	Apps_ID string             `json:"apps_id`
+	Apps_ID string             `json:"apps_id"`
 }
