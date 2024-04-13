@@ -10,13 +10,13 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+var appCollection *mongo.Collection = database.OpenCollection(database.Client, "app")
 
 func main() {
 	port := os.Getenv("PORT")
 
 	if port == "" {
-		port = "9000"
+		port = "8000"
 	}
 
 	router := gin.New()

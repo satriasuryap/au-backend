@@ -11,5 +11,4 @@ func PrefRoutes(incomingRoutes *gin.Engine) {
 	incomingRoutes.GET("/pref", controller.GetPrefs())
 	incomingRoutes.GET("/pref/:pref_id", controller.GetPref())
 	incomingRoutes.POST("/pref", controller.CreatePref())
-	incomingRoutes.PATCH("/pref/:pref_id", controller.UpdatePref())
 }

@@ -7,16 +7,16 @@ import (
 )
 
 type User struct {
-	ID            primitive.ObjectID `bson:"_id" json:"_id"`
-	Username      string             `json:"username" gorm:"unique" bson:"username,omitempty"`
+	ID            primitive.ObjectID `bson:"_id"`
 	First_name    *string            `json:"first_name" validate:"required,min=2,max=100"`
 	Last_name     *string            `json:"last_name" validate:"required,min=2,max=100"`
+	Password      *string            `json:"Password" validate:"required,min=6"`
 	Email         *string            `json:"email" validate:"email,required"`
-	Password      *string            `json:"password" bson:"password"`
+	Avatar        *string            `json:"avatar"`
+	Phone         *string            `json:"phone" validate:"required"`
 	Token         *string            `json:"token"`
 	Refresh_Token *string            `json:"refresh_token"`
-	CreatedAt     time.Time          `json:"createdat" bson:"createat"`
-	DeactivatedAt time.Time          `json:"deactivateat" bson:"deactivateat"`
-	UpdatedAt     time.Time          `json:"updatedat" bson:"updatedat"`
+	Created_at    time.Time          `json:"created_at"`
+	Updated_at    time.Time          `json:"updated_at"`
 	User_id       string             `json:"user_id"`
 }
