@@ -133,7 +133,7 @@ func SignUp() gin.HandlerFunc {
 
 		//generate token and refersh token (generate all tokens function from helper)
 
-		token, refreshToken, _ := helper.GenerateAllTokens(*user.Email, *user.First_name, *user.Last_name, user.User_id)
+		token, refreshToken, _ := helper.GenerateAllTokens(*user.Email, *user.Full_name, user.User_id)
 		user.Token = &token
 		user.Refresh_Token = &refreshToken
 		//if all ok, then you insert this new user into the user collection
@@ -185,7 +185,7 @@ func Login() gin.HandlerFunc {
 
 		//if all goes well, then you'll generate tokens
 
-		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, foundUser.User_id)
+		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.Full_name, foundUser.User_id)
 
 		//update tokens - token and refersh token
 		helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
