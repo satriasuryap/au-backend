@@ -39,6 +39,7 @@ func main() {
 	routes.AppRoutes(router)
 	routes.NewsRoutes(router)
 	routes.PrefRoutes(router)
+	routes.PaymentRoutes(router)
 
 	router.Run(":" + port)
 }
