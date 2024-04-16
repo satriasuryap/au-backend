@@ -69,9 +69,6 @@ func CreateNews() gin.HandlerFunc {
 			return
 		}
 
-		/*pref.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		pref.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))*/
-
 		news.ID = primitive.NewObjectID()
 		news.News_id = news.ID.Hex()
 
