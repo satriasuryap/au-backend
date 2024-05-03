@@ -40,6 +40,8 @@ func main() {
 	routes.NewsRoutes(router)
 	routes.PrefRoutes(router)
 	routes.PaymentRoutes(router)
+	routes.CoursesRoutes(router)
+	routes.TranscriptRoutes(router)
 
 	router.Run(":" + port)
 }
