@@ -111,13 +111,13 @@ func SignUp() gin.HandlerFunc {
 
 		//you'll also check if the phone no. has already been used by another user
 
-		count, err = userCollection.CountDocuments(ctx, bson.M{"phone": user.Phone})
-		defer cancel()
-		if err != nil {
-			log.Panic(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while checking for the phone number"})
-			return
-		}
+		// count, err = userCollection.CountDocuments(ctx, bson.M{"phone": user.Phone})
+		// defer cancel()
+		// if err != nil {
+		// 	log.Panic(err)
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while checking for the phone number"})
+		// 	return
+		// }
 
 		if count > 0 {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "this email or phone number already exsits"})
