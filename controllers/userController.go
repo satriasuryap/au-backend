@@ -216,3 +216,46 @@ func VerifyPassword(userPassword string, providedPassword string) (bool, string)
 	}
 	return check, msg
 }
+
+func UpdateUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		userId := c.Param("user_id")
+
+		var updateUser models.User
+		if err := c.BindJSON(&updateUser); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		var user models.User
+		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+			return
+		}
+
+		user.Full_name = updateUser.Full_name
+		user.Email = updateUser.Email
+		user.Password = updateUser.Password
+		user.Avatar = updateUser.Avatar
+		user.IsAdmin = updateUser.IsAdmin
+
+		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+
+		if updateUser.Password != nil {
+			password := HashPassword(*updateUser.Password)
+			user.Password = &password
+		}
+
+		_, updateErr := userCollection.ReplaceOne(ctx, bson.M{"user_id": userId}, user)
+		defer cancel()
+		if updateErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while updating user"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "user updated successfully"})
+	}
+}

@@ -12,10 +12,10 @@ type User struct {
 	Password      *string            `json:"password" validate:"required,min=6"`
 	Email         *string            `json:"email" validate:"email,required"`
 	Avatar        *string            `json:"avatar"`
-	Phone         *string            `json:"phone"`
 	Token         *string            `json:"token"`
 	Refresh_Token *string            `json:"refresh_token"`
 	Created_at    time.Time          `json:"created_at"`
 	Updated_at    time.Time          `json:"updated_at"`
+	IsAdmin       bool               `json:"is_admin"`
 	User_id       string             `json:"user_id"`
 }

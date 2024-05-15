@@ -13,5 +13,4 @@ type Apps struct {
 	CreatedAt time.Time          `json:"createdat" bson:"createat"`
 	UpdatedAt time.Time          `json:"updatedat" bson:"updatedat"`
 	Apps_ID   string             `json:"apps_id"`
-	Pref_id   *string            `json:"pref_id"`
 }

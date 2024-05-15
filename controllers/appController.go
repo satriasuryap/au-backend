@@ -81,7 +81,6 @@ func GetApp() gin.HandlerFunc {
 func CreateApp() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		var prefs models.Prefs
 		var apps models.Apps
 
 		if err := c.BindJSON(&apps); err != nil {
@@ -94,13 +93,7 @@ func CreateApp() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
-		err := prefsCollection.FindOne(ctx, bson.M{"menu_id": apps.Pref_id}).Decode(&prefs)
-		defer cancel()
-		if err != nil {
-			msg := fmt.Sprintf("menu was not found")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-			return
-		}
+
 		apps.CreatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		apps.UpdatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		apps.ID = primitive.NewObjectID()
@@ -119,8 +112,7 @@ func CreateApp() gin.HandlerFunc {
 
 func UpdateApp() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		var prefs models.Prefs
+		var ctx, _ = context.WithTimeout(context.Background(), 100*time.Second)
 		var apps models.Apps
 
 		appsId := c.Param("apps_id")
@@ -138,17 +130,6 @@ func UpdateApp() gin.HandlerFunc {
 
 		if apps.Icon != nil {
 			updateObj = append(updateObj, bson.E{"apps_icon", apps.Icon})
-		}
-
-		if apps.Pref_id != nil {
-			err := prefsCollection.FindOne(ctx, bson.M{"pref_id": apps.Pref_id}).Decode(&prefs)
-			defer cancel()
-			if err != nil {
-				msg := fmt.Sprintf("message:Menu was not found")
-				c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-				return
-			}
-			updateObj = append(updateObj, bson.E{"prefs", apps.Name})
 		}
 
 		apps.UpdatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
