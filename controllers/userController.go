@@ -8,6 +8,7 @@ import (
 	"golang-au-backend/models"
 	"log"
 	"net/http"
+
 	"strconv"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -22,41 +24,82 @@ var userCollection *mongo.Collection = database.OpenCollection(database.Client, 
 
 func GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		// var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		// defer cancel()
+		// recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		// if err != nil || recordPerPage < 1 {
+		// 	recordPerPage = 10
+		// }
 
+		// page, err1 := strconv.Atoi(c.Query("page"))
+		// if err1 != nil || page < 1 {
+		// 	page = 1
+		// }
+
+		// startIndex := (page - 1) * recordPerPage
+
+		// matchStage := bson.D{{Key: "$match", Value: bson.D{{}}}}
+		// projectStage := bson.D{
+		// 	{Key: "$project", Value: bson.D{
+		// 		{Key: "_id", Value: 0},
+		// 		{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+		// 		{Key: "page", Value: bson.D{{Key: "$sum", Value: page}}},
+		// 		{Key: "startIndex", Value: bson.D{{Key: "$sum", Value: startIndex}}},
+		// 		{Key: "recordPerPage", Value: bson.D{{Key: "$sum", Value: recordPerPage}}},
+		// 		{Key: "user_items", Value: bson.D{{Key: "$slice", Value: []interface{}{"$data", startIndex, recordPerPage}}}},
+		// 	}}}
+
+		// result, err := userCollection.Aggregate(ctx, mongo.Pipeline{matchStage, projectStage})
+		// if err != nil {
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing user items"})
+		// 	return
+		// }
+
+		// var allUsers []bson.M
+		// if err = result.All(ctx, &allUsers); err != nil {
+		// 	log.Fatal(err)
+		// }
+		// c.JSON(http.StatusOK, allUsers)
+
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		// Get pagination parameters from query
 		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
 		if err != nil || recordPerPage < 1 {
 			recordPerPage = 10
 		}
 
-		page, err1 := strconv.Atoi(c.Query("page"))
-		if err1 != nil || page < 1 {
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
 			page = 1
 		}
 
-		startIndex := (page - 1) * recordPerPage
-		startIndex, err = strconv.Atoi(c.Query("startIndex"))
+		// Calculate the number of documents to skip
+		skip := (page - 1) * recordPerPage
 
-		matchStage := bson.D{{"$match", bson.D{{}}}}
-		projectStage := bson.D{
-			{"$project", bson.D{
-				{"_id", 0},
-				{"total_count", 1},
-				{"user_items", bson.D{{"$slice", []interface{}{"$data", startIndex, recordPerPage}}}},
-			}}}
+		projection := bson.D{
+			{Key: "ID", Value: 1},
+			{Key: "full_name", Value: 1},
+			{Key: "email", Value: 1},
+			{Key: "avatar", Value: 1},
+			{Key: "is_admin", Value: 1},
+			{Key: "user_id", Value: 1},
+		}
 
-		result, err := userCollection.Aggregate(ctx, mongo.Pipeline{
-			matchStage, projectStage})
-		defer cancel()
+		cursor, err := userCollection.Find(ctx, bson.D{}, options.Find().SetProjection(projection).SetLimit(int64(recordPerPage)).SetSkip(int64(skip)))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing user items"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while listing user items"})
+			return
 		}
 
 		var allUsers []bson.M
-		if err = result.All(ctx, &allUsers); err != nil {
-			log.Fatal(err)
+		if err = cursor.All(ctx, &allUsers); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while fetching user items"})
+			return
 		}
-		c.JSON(http.StatusOK, allUsers[0])
+
+		c.JSON(http.StatusOK, allUsers)
 
 	}
 }
