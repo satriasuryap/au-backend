@@ -12,5 +12,6 @@ type Transcript struct {
 	Course_id     *string            `json:"course_id"`
 	Created_at    time.Time          `json:"created_at"`
 	Updated_at    time.Time          `json:"updated_at"`
+	Score         int                `json:"score"`
 	Transcript_id string             `json:"transcript_id"`
 }
