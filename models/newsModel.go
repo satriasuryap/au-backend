@@ -7,11 +7,11 @@ import (
 )
 
 type News struct {
-	ID            primitive.ObjectID `bson:"_id" json:"_id"`
-	Title         *string            `json:"title" gorm:"unique" bson:"title,omitempty"`
-	Content       *string            `json:"content" gorm:"unique" bson:"content,omitempty"`
-	URL           string             `json:"url"`
-	CreatedAt     time.Time          `json:"createdat" bson:"createat"`
-	DeactivatedAt time.Time          `json:"updatedat" bson:"updatedat"`
-	News_id       string             `json:"news_id"`
+	ID            primitive.ObjectID `bson:"_id"`
+	Title         *string            `json:"title"`
+	Content       *string            `json:"content"`
+	NavigateTo    string             `json:"navigateto"`
+	CreatedAt     time.Time          `json:"createdat"`
+	DeactivatedAt time.Time          `json:"deactivatedat"`
+	Newsid        string             `json:"newsid"`
 }

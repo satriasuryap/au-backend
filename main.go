@@ -24,7 +24,7 @@ func main() {
 
 	router.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(200)
@@ -34,10 +34,10 @@ func main() {
 	})
 
 	routes.UserRoutes(router)
+	routes.NewsRoutes(router)
 	router.Use(middleware.Authentication())
 
 	routes.AppRoutes(router)
-	routes.NewsRoutes(router)
 	routes.PrefRoutes(router)
 	routes.PaymentRoutes(router)
 	routes.CoursesRoutes(router)

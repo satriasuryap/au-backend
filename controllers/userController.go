@@ -24,47 +24,9 @@ var userCollection *mongo.Collection = database.OpenCollection(database.Client, 
 
 func GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		// defer cancel()
-		// recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
-		// if err != nil || recordPerPage < 1 {
-		// 	recordPerPage = 10
-		// }
-
-		// page, err1 := strconv.Atoi(c.Query("page"))
-		// if err1 != nil || page < 1 {
-		// 	page = 1
-		// }
-
-		// startIndex := (page - 1) * recordPerPage
-
-		// matchStage := bson.D{{Key: "$match", Value: bson.D{{}}}}
-		// projectStage := bson.D{
-		// 	{Key: "$project", Value: bson.D{
-		// 		{Key: "_id", Value: 0},
-		// 		{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
-		// 		{Key: "page", Value: bson.D{{Key: "$sum", Value: page}}},
-		// 		{Key: "startIndex", Value: bson.D{{Key: "$sum", Value: startIndex}}},
-		// 		{Key: "recordPerPage", Value: bson.D{{Key: "$sum", Value: recordPerPage}}},
-		// 		{Key: "user_items", Value: bson.D{{Key: "$slice", Value: []interface{}{"$data", startIndex, recordPerPage}}}},
-		// 	}}}
-
-		// result, err := userCollection.Aggregate(ctx, mongo.Pipeline{matchStage, projectStage})
-		// if err != nil {
-		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing user items"})
-		// 	return
-		// }
-
-		// var allUsers []bson.M
-		// if err = result.All(ctx, &allUsers); err != nil {
-		// 	log.Fatal(err)
-		// }
-		// c.JSON(http.StatusOK, allUsers)
-
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
-		// Get pagination parameters from query
 		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
 		if err != nil || recordPerPage < 1 {
 			recordPerPage = 10
@@ -75,16 +37,14 @@ func GetUsers() gin.HandlerFunc {
 			page = 1
 		}
 
-		// Calculate the number of documents to skip
 		skip := (page - 1) * recordPerPage
 
 		projection := bson.D{
-			{Key: "ID", Value: 1},
+			{Key: "_id", Value: 1},
 			{Key: "full_name", Value: 1},
 			{Key: "email", Value: 1},
 			{Key: "avatar", Value: 1},
 			{Key: "is_admin", Value: 1},
-			{Key: "user_id", Value: 1},
 		}
 
 		cursor, err := userCollection.Find(ctx, bson.D{}, options.Find().SetProjection(projection).SetLimit(int64(recordPerPage)).SetSkip(int64(skip)))
@@ -107,23 +67,41 @@ func GetUsers() gin.HandlerFunc {
 func GetUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 		userId := c.Param("user_id")
 
 		var user models.User
 
-		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&user)
+		projection := bson.D{
+			{Key: "_id", Value: 1},
+			{Key: "full_name", Value: 1},
+			{Key: "email", Value: 1},
+		}
 
-		defer cancel()
+		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}, options.FindOne().SetProjection(projection)).Decode(&user)
+
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing user items"})
 		}
-		c.JSON(http.StatusOK, user)
+
+		response := struct {
+			ID       primitive.ObjectID `json:"_id"`
+			FullName *string            `json:"full_name"`
+			Email    *string            `json:"email"`
+		}{
+			ID:       user.ID,
+			FullName: user.Full_name,
+			Email:    user.Email,
+		}
+
+		c.JSON(http.StatusOK, response)
 	}
 }
 
 func SignUp() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 		var user models.User
 
 		//convert the JSON data coming from postman to something that golang understands
@@ -141,7 +119,6 @@ func SignUp() gin.HandlerFunc {
 		//you'll check if the email has already been used by another user
 
 		count, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
-		defer cancel()
 		if err != nil {
 			log.Panic(err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while checking for the email"})
@@ -173,6 +150,7 @@ func SignUp() gin.HandlerFunc {
 		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
+		user.Is_Admin = false
 
 		//generate token and refersh token (generate all tokens function from helper)
 
@@ -198,6 +176,7 @@ func Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 		var user models.User
 		var foundUser models.User
 
@@ -220,8 +199,7 @@ func Login() gin.HandlerFunc {
 		//then you will verify the password
 
 		passwordIsValid, msg := VerifyPassword(*user.Password, *foundUser.Password)
-		defer cancel()
-		if passwordIsValid != true {
+		if !passwordIsValid {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
@@ -263,6 +241,8 @@ func VerifyPassword(userPassword string, providedPassword string) (bool, string)
 func UpdateUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
 		userId := c.Param("user_id")
 
 		var updateUser models.User
@@ -273,7 +253,6 @@ func UpdateUser() gin.HandlerFunc {
 
 		var user models.User
 		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&user)
-		defer cancel()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
 			return
@@ -283,7 +262,7 @@ func UpdateUser() gin.HandlerFunc {
 		user.Email = updateUser.Email
 		user.Password = updateUser.Password
 		user.Avatar = updateUser.Avatar
-		user.IsAdmin = updateUser.IsAdmin
+		user.Is_Admin = updateUser.Is_Admin
 
 		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
@@ -300,5 +279,35 @@ func UpdateUser() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "user updated successfully"})
+	}
+}
+
+func DeleteUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		userID := c.Param("user_id")
+
+		objID, err := primitive.ObjectIDFromHex(userID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid news ID"})
+			return
+		}
+
+		filter := bson.M{"_id": objID}
+
+		result, err := userCollection.DeleteOne(ctx, filter)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while deleting the user item"})
+			return
+		}
+
+		if result.DeletedCount == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user item not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "user item deleted successfully"})
 	}
 }

@@ -4,9 +4,10 @@ import (
 	"context"
 	"golang-au-backend/database"
 	"golang-au-backend/models"
-	"log"
 	"net/http"
 	"time"
+
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -20,121 +21,161 @@ var newsCollection *mongo.Collection = database.OpenCollection(database.Client, 
 func GetNews() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-
-		result, err := newsCollection.Find(context.TODO(), bson.M{})
 		defer cancel()
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 1 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		skip := (page - 1) * recordPerPage
+
+		result, err := newsCollection.Find(ctx, bson.D{}, options.Find().SetLimit(int64(recordPerPage)).SetSkip(int64(skip)))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing table items"})
+			return
 		}
+
 		var allNews []bson.M
 		if err = result.All(ctx, &allNews); err != nil {
-			log.Fatal(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing table items"})
+			return
 		}
+
 		c.JSON(http.StatusOK, allNews)
 	}
 }
 
-func GetNew() gin.HandlerFunc {
+func GetNewsOne() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
 		newsId := c.Param("news_id")
 		var news models.News
 
-		err := newsCollection.FindOne(ctx, bson.M{"news_id": newsId}).Decode(&news)
-		defer cancel()
+		err := newsCollection.FindOne(ctx, bson.M{"newsid": newsId}).Decode(&news)
+
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while fetching the tables"})
 		}
-		c.JSON(http.StatusOK, news)
+
+		response := struct {
+			ID         primitive.ObjectID `json:"_id"`
+			Title      *string            `json:"title"`
+			Content    *string            `json:"content"`
+			NavigateTo string             `json:"navigateto"`
+		}{
+			ID:         news.ID,
+			Title:      news.Title,
+			Content:    news.Content,
+			NavigateTo: news.NavigateTo,
+		}
+
+		c.JSON(http.StatusOK, response)
 	}
 }
 
 func CreateNews() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
 		var news models.News
 
 		if err := c.BindJSON(&news); err != nil {
-			cancel()
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		validationErr := validate.Struct(news)
-
-		if validationErr != nil {
-			cancel()
-			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+		if err := validate.Struct(news); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		news.ID = primitive.NewObjectID()
-		news.News_id = news.ID.Hex()
+		news.Newsid = news.ID.Hex()
+		news.CreatedAt = time.Now()
+		news.DeactivatedAt = time.Time{}
 
-		result, insertErr := newsCollection.InsertOne(ctx, news)
+		resultInsertionNumber, insertErr := newsCollection.InsertOne(ctx, news)
 
 		if insertErr != nil {
-			cancel()
 			msg := "news item was not created"
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
-		defer cancel()
 
-		c.JSON(http.StatusOK, result)
+		c.JSON(http.StatusOK, resultInsertionNumber)
 	}
 }
 
 func UpdateNews() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-
-		var news models.News
+		defer cancel()
 
 		newsId := c.Param("news_id")
 
-		if err := c.BindJSON(&news); err != nil {
-			cancel()
+		var updateNews models.News
+		if err := c.BindJSON(&updateNews); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		var updateObj primitive.D
-
-		if news.Content != nil {
-			updateObj = append(updateObj, bson.E{Key: "content", Value: news.Content})
-		}
-		if news.Title != nil {
-			updateObj = append(updateObj, bson.E{Key: "title", Value: news.Title})
-		}
-
-		//pref.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-
-		upsert := true
-		opt := options.UpdateOptions{
-			Upsert: &upsert,
-		}
-
-		filter := bson.M{"news_id": newsId}
-
-		result, err := newsCollection.UpdateOne(
-			ctx,
-			filter,
-			bson.D{
-				{Key: "$set", Value: updateObj},
-			},
-			&opt,
-		)
-
+		var news models.News
+		err := newsCollection.FindOne(ctx, bson.M{"newsid": newsId}).Decode(&news)
 		if err != nil {
-			cancel()
-			msg := "table item update failed"
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "news not found"})
 			return
 		}
 
+		news.Title = updateNews.Title
+		news.Content = updateNews.Content
+		news.NavigateTo = updateNews.NavigateTo
+
+		_, updateErr := newsCollection.ReplaceOne(ctx, bson.M{"newsid": newsId}, news)
 		defer cancel()
-		c.JSON(http.StatusOK, result)
+		if updateErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while updating news"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "news updated successfully"})
+	}
+}
+
+func DeleteNews() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		newsId := c.Param("news_id")
+
+		objID, err := primitive.ObjectIDFromHex(newsId)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid news ID"})
+			return
+		}
+
+		filter := bson.M{"_id": objID}
+
+		result, err := newsCollection.DeleteOne(ctx, filter)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while deleting the news item"})
+			return
+		}
+
+		if result.DeletedCount == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "news item not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "news item deleted successfully"})
 	}
 }
