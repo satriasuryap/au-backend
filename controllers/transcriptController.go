@@ -20,7 +20,7 @@ var transcriptCollection *mongo.Collection = database.OpenCollection(database.Cl
 func GetTranscripts() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		result, err := prefsCollection.Find(context.TODO(), bson.M{})
+		result, err := transcriptCollection.Find(context.TODO(), bson.M{})
 		defer cancel()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing the transcript items"})
@@ -69,7 +69,7 @@ func CreateTranscript() gin.HandlerFunc {
 		transcript.ID = primitive.NewObjectID()
 		transcript.Transcript_id = transcript.ID.Hex()
 
-		result, insertErr := prefsCollection.InsertOne(ctx, transcript)
+		result, insertErr := transcriptCollection.InsertOne(ctx, transcript)
 		if insertErr != nil {
 			msg := fmt.Sprintf("Transcript item was not created")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
