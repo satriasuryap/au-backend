@@ -35,13 +35,12 @@ func main() {
 
 	routes.UserRoutes(router)
 	routes.NewsRoutes(router)
-	router.Use(middleware.Authentication())
-
+	routes.CoursesRoutes(router)
+	routes.PaymentRoutes(router)
 	routes.AppRoutes(router)
 	routes.PrefRoutes(router)
-	routes.PaymentRoutes(router)
-	routes.CoursesRoutes(router)
 	routes.TranscriptRoutes(router)
+	router.Use(middleware.Authentication())
 
 	router.Run(":" + port)
 }

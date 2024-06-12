@@ -7,8 +7,8 @@ import (
 )
 
 func TranscriptRoutes(incomingRoutes *gin.Engine) {
-	incomingRoutes.GET("/transcript", controller.GetTranscripts())
-	incomingRoutes.GET("/transcript/transcript_id", controller.GetTranscript())
-	incomingRoutes.POST("/transcript", controller.CreateTranscript())
-	//incomingRoutes.PATCH("/transcript/transcript_id", controller.UpdateTranscript())
+	incomingRoutes.GET("/transcript/:user_id", controller.GetTranscript())
+	incomingRoutes.POST("/transcript/:user_id/:course_id", controller.CreateTranscript())
+	incomingRoutes.PATCH("/transcript/:transcript_id", controller.UpdateTranscript())
+	incomingRoutes.DELETE("/transcript/:transcript_id", controller.DeleteTranscript())
 }

@@ -57,27 +57,15 @@ func GetNewsOne() gin.HandlerFunc {
 		defer cancel()
 
 		newsId := c.Param("news_id")
+
 		var news models.News
 
 		err := newsCollection.FindOne(ctx, bson.M{"newsid": newsId}).Decode(&news)
-
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while fetching the tables"})
 		}
 
-		response := struct {
-			ID         primitive.ObjectID `json:"_id"`
-			Title      *string            `json:"title"`
-			Content    *string            `json:"content"`
-			NavigateTo string             `json:"navigateto"`
-		}{
-			ID:         news.ID,
-			Title:      news.Title,
-			Content:    news.Content,
-			NavigateTo: news.NavigateTo,
-		}
-
-		c.JSON(http.StatusOK, response)
+		c.JSON(http.StatusOK, news)
 	}
 }
 
@@ -99,7 +87,6 @@ func CreateNews() gin.HandlerFunc {
 		}
 
 		news.ID = primitive.NewObjectID()
-		news.Newsid = news.ID.Hex()
 		news.CreatedAt = time.Now()
 		news.DeactivatedAt = time.Time{}
 
@@ -135,9 +122,15 @@ func UpdateNews() gin.HandlerFunc {
 			return
 		}
 
-		news.Title = updateNews.Title
-		news.Content = updateNews.Content
-		news.NavigateTo = updateNews.NavigateTo
+		if updateNews.Title != nil {
+			news.Title = updateNews.Title
+		}
+		if updateNews.Content != nil {
+			news.Content = updateNews.Content
+		}
+		if updateNews.NavigateTo != nil {
+			news.NavigateTo = updateNews.NavigateTo
+		}
 
 		_, updateErr := newsCollection.ReplaceOne(ctx, bson.M{"newsid": newsId}, news)
 		defer cancel()

@@ -2,10 +2,8 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"golang-au-backend/database"
 	"golang-au-backend/models"
-	"log"
 	"net/http"
 	"time"
 
@@ -17,67 +15,179 @@ import (
 
 var transcriptCollection *mongo.Collection = database.OpenCollection(database.Client, "transcript")
 
-func GetTranscripts() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		result, err := transcriptCollection.Find(context.TODO(), bson.M{})
-		defer cancel()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing the transcript items"})
-		}
-		var allTranscript []bson.M
-		if err = result.All(ctx, &allTranscript); err != nil {
-			log.Fatal(err)
-		}
-		c.JSON(http.StatusOK, allTranscript)
-	}
-}
-
 func GetTranscript() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		transcriptId := c.Param("transcript_id")
-		var transcript models.Transcript
-
-		err := appCollection.FindOne(ctx, bson.M{"transcript_id": transcriptId}).Decode(&transcript)
 		defer cancel()
+
+		userId := c.Param("user_id")
+
+		var transcripts []models.Transcript
+
+		cursor, err := transcriptCollection.Find(ctx, bson.M{"user_id": userId})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while fetching the transcript"})
+			return
 		}
-		c.JSON(http.StatusOK, transcript)
+
+		defer cursor.Close(ctx)
+		for cursor.Next(ctx) {
+			var transcript models.Transcript
+			if err := cursor.Decode(&transcript); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while decoding transcript"})
+				return
+			}
+			transcripts = append(transcripts, transcript)
+		}
+
+		if err := cursor.Err(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred during cursor iteration"})
+			return
+		}
+
+		c.JSON(http.StatusOK, transcripts)
 	}
 }
 
 func CreateTranscript() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var transcript models.Transcript
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
-		if err := c.BindJSON(&transcript); err != nil {
+		userId := c.Param("user_id")
+		userObjID, errr := primitive.ObjectIDFromHex(userId)
+		if errr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+			return
+		}
+
+		var user models.User
+		errUser := userCollection.FindOne(ctx, bson.M{"_id": userObjID}).Decode(&user)
+		if errUser != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "user was not found"})
+			return
+		}
+
+		courseId := c.Param("course_id")
+		courseObjID, errr := primitive.ObjectIDFromHex(courseId)
+		if errr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid course ID"})
+			return
+		}
+
+		var course models.Course
+		errCourse := courseCollection.FindOne(ctx, bson.M{"_id": courseObjID}).Decode(&course)
+		if errCourse != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "course was not found"})
+			return
+		}
+
+		var transcript models.Transcript
+		if errTranscript := c.BindJSON(&transcript); errTranscript != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": errTranscript.Error()})
+			return
+		}
+
+		var existingTranscript models.Transcript
+		errExisting := transcriptCollection.FindOne(ctx, bson.M{
+			"user_id":   userId,
+			"course_id": courseId,
+			"taken_in":  transcript.Taken_in,
+		}).Decode(&existingTranscript)
+
+		if errExisting == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "user has already taken this course in the specified semester"})
+			return
+		}
+
+		transcript.Course_id = &courseId
+		transcript.User_id = &userId
+		gpa := 0.0
+		transcript.GPA = &gpa
+
+		transcript.Created_at = time.Now()
+		transcript.Updated_at = time.Now()
+		transcript.ID = primitive.NewObjectID()
+
+		result, insertErr := transcriptCollection.InsertOne(ctx, transcript)
+		if insertErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "transcript item was not created"})
+			return
+		}
+
+		c.JSON(http.StatusOK, result)
+	}
+}
+
+func UpdateTranscript() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		transcriptId := c.Param("transcript_id")
+
+		objID, errr := primitive.ObjectIDFromHex(transcriptId)
+		if errr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid transcript ID"})
+			return
+		}
+
+		var updateTranscript models.Transcript
+		if err := c.BindJSON(&updateTranscript); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		validationErr := validate.Struct(transcript)
-		if validationErr != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+		var transcript models.Transcript
+		err := transcriptCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&transcript)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "transcript not found"})
 			return
 		}
 
-		transcript.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		transcript.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		transcript.ID = primitive.NewObjectID()
-		transcript.Transcript_id = transcript.ID.Hex()
+		if updateTranscript.GPA != nil {
+			transcript.GPA = updateTranscript.GPA
+		}
 
-		result, insertErr := transcriptCollection.InsertOne(ctx, transcript)
-		if insertErr != nil {
-			msg := fmt.Sprintf("Transcript item was not created")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+		transcript.Updated_at = time.Now()
+
+		_, updateErr := transcriptCollection.ReplaceOne(ctx, bson.M{"_id": objID}, transcript)
+		defer cancel()
+		if updateErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while updating transcript"})
 			return
 		}
-		defer cancel()
-		c.JSON(http.StatusOK, result)
-		defer cancel()
+
+		c.JSON(http.StatusOK, gin.H{"message": "transcript updated successfully"})
 	}
+}
 
+func DeleteTranscript() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		transcriptID := c.Param("transcript_id")
+
+		objID, err := primitive.ObjectIDFromHex(transcriptID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid transcript ID"})
+			return
+		}
+
+		filter := bson.M{"_id": objID}
+
+		result, err := transcriptCollection.DeleteOne(ctx, filter)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while deleting the transcript item"})
+			return
+		}
+
+		if result.DeletedCount == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "transcript item not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "transcript item deleted successfully"})
+	}
 }

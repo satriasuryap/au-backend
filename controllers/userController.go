@@ -45,6 +45,7 @@ func GetUsers() gin.HandlerFunc {
 			{Key: "email", Value: 1},
 			{Key: "avatar", Value: 1},
 			{Key: "is_admin", Value: 1},
+			{Key: "user_id", Value: 1},
 		}
 
 		cursor, err := userCollection.Find(ctx, bson.D{}, options.Find().SetProjection(projection).SetLimit(int64(recordPerPage)).SetSkip(int64(skip)))
@@ -68,7 +69,14 @@ func GetUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
+
 		userId := c.Param("user_id")
+
+		objID, errr := primitive.ObjectIDFromHex(userId)
+		if errr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+			return
+		}
 
 		var user models.User
 
@@ -76,22 +84,25 @@ func GetUser() gin.HandlerFunc {
 			{Key: "_id", Value: 1},
 			{Key: "full_name", Value: 1},
 			{Key: "email", Value: 1},
+			{Key: "user_id", Value: 1},
 		}
 
-		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}, options.FindOne().SetProjection(projection)).Decode(&user)
-
+		err := userCollection.FindOne(ctx, bson.M{"_id": objID}, options.FindOne().SetProjection(projection)).Decode(&user)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing user items"})
+			return
 		}
 
 		response := struct {
-			ID       primitive.ObjectID `json:"_id"`
-			FullName *string            `json:"full_name"`
-			Email    *string            `json:"email"`
+			ID       string  `json:"_id"`
+			FullName *string `json:"full_name"`
+			Email    *string `json:"email"`
+			Userid   string  `json:"user_id"`
 		}{
-			ID:       user.ID,
+			ID:       user.ID.Hex(),
 			FullName: user.Full_name,
 			Email:    user.Email,
+			Userid:   user.User_id,
 		}
 
 		c.JSON(http.StatusOK, response)
@@ -149,12 +160,12 @@ func SignUp() gin.HandlerFunc {
 		user.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.ID = primitive.NewObjectID()
-		user.User_id = user.ID.Hex()
+		// user.User_id = user.ID.Hex()
 		user.Is_Admin = false
 
 		//generate token and refersh token (generate all tokens function from helper)
 
-		token, refreshToken, _ := helper.GenerateAllTokens(*user.Email, *user.Full_name, user.User_id)
+		token, refreshToken, _ := helper.GenerateAllTokens(*user.Email, *user.Full_name, user.ID.Hex())
 		user.Token = &token
 		user.Refresh_Token = &refreshToken
 		//if all ok, then you insert this new user into the user collection
@@ -245,6 +256,12 @@ func UpdateUser() gin.HandlerFunc {
 
 		userId := c.Param("user_id")
 
+		objID, errr := primitive.ObjectIDFromHex(userId)
+		if errr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+			return
+		}
+
 		var updateUser models.User
 		if err := c.BindJSON(&updateUser); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -252,7 +269,7 @@ func UpdateUser() gin.HandlerFunc {
 		}
 
 		var user models.User
-		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&user)
+		err := userCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&user)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
 			return
@@ -263,6 +280,7 @@ func UpdateUser() gin.HandlerFunc {
 		user.Password = updateUser.Password
 		user.Avatar = updateUser.Avatar
 		user.Is_Admin = updateUser.Is_Admin
+		user.User_id = updateUser.User_id
 
 		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
@@ -271,7 +289,7 @@ func UpdateUser() gin.HandlerFunc {
 			user.Password = &password
 		}
 
-		_, updateErr := userCollection.ReplaceOne(ctx, bson.M{"user_id": userId}, user)
+		_, updateErr := userCollection.ReplaceOne(ctx, bson.M{"_id": objID}, user)
 		defer cancel()
 		if updateErr != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while updating user"})
@@ -291,7 +309,7 @@ func DeleteUser() gin.HandlerFunc {
 
 		objID, err := primitive.ObjectIDFromHex(userID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid news ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
 			return
 		}
 
