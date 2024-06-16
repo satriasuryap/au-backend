@@ -4,6 +4,7 @@ import (
 	"context"
 	"golang-au-backend/database"
 	"golang-au-backend/models"
+	"log"
 	"net/http"
 	"time"
 
@@ -37,13 +38,13 @@ func GetNews() gin.HandlerFunc {
 
 		result, err := newsCollection.Find(ctx, bson.D{}, options.Find().SetLimit(int64(recordPerPage)).SetSkip(int64(skip)))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing table items"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing news items"})
 			return
 		}
 
 		var allNews []bson.M
 		if err = result.All(ctx, &allNews); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing table items"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing news items"})
 			return
 		}
 
@@ -58,11 +59,23 @@ func GetNewsOne() gin.HandlerFunc {
 
 		newsId := c.Param("news_id")
 
+		objID, errr := primitive.ObjectIDFromHex(newsId)
+		if errr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+			return
+		}
+
 		var news models.News
 
-		err := newsCollection.FindOne(ctx, bson.M{"newsid": newsId}).Decode(&news)
+		err := newsCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&news)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while fetching the tables"})
+			if err == mongo.ErrNoDocuments {
+				c.JSON(http.StatusOK, nil)
+			} else {
+				log.Printf("Error occurred while fetching the payment: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while fetching news"})
+			}
+			return
 		}
 
 		c.JSON(http.StatusOK, news)
