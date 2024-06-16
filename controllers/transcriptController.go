@@ -49,6 +49,78 @@ func GetTranscript() gin.HandlerFunc {
 	}
 }
 
+func GetApprovedTranscript() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		userId := c.Param("user_id")
+
+		var transcripts []models.Transcript
+
+		filter := bson.M{"user_id": userId, "approval": true}
+
+		cursor, err := transcriptCollection.Find(ctx, filter)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while fetching the transcript"})
+			return
+		}
+
+		defer cursor.Close(ctx)
+		for cursor.Next(ctx) {
+			var transcript models.Transcript
+			if err := cursor.Decode(&transcript); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while decoding transcript"})
+				return
+			}
+			transcripts = append(transcripts, transcript)
+		}
+
+		if err := cursor.Err(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred during cursor iteration"})
+			return
+		}
+
+		c.JSON(http.StatusOK, transcripts)
+	}
+}
+
+func GetNotApprovedTranscript() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		userId := c.Param("user_id")
+
+		var transcripts []models.Transcript
+
+		filter := bson.M{"user_id": userId, "approval": false}
+
+		cursor, err := transcriptCollection.Find(ctx, filter)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while fetching the transcript"})
+			return
+		}
+
+		defer cursor.Close(ctx)
+		for cursor.Next(ctx) {
+			var transcript models.Transcript
+			if err := cursor.Decode(&transcript); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while decoding transcript"})
+				return
+			}
+			transcripts = append(transcripts, transcript)
+		}
+
+		if err := cursor.Err(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred during cursor iteration"})
+			return
+		}
+
+		c.JSON(http.StatusOK, transcripts)
+	}
+}
+
 func CreateTranscript() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
@@ -102,8 +174,12 @@ func CreateTranscript() gin.HandlerFunc {
 
 		transcript.Course_id = &courseId
 		transcript.User_id = &userId
+
 		gpa := 0.0
 		transcript.GPA = &gpa
+
+		initialApproval := false
+		transcript.Approval = &initialApproval
 
 		transcript.Created_at = time.Now()
 		transcript.Updated_at = time.Now()
@@ -148,6 +224,9 @@ func UpdateTranscript() gin.HandlerFunc {
 		if updateTranscript.GPA != nil {
 			transcript.GPA = updateTranscript.GPA
 		}
+		if updateTranscript.Approval != nil {
+			transcript.Approval = updateTranscript.Approval
+		}
 
 		transcript.Updated_at = time.Now()
 
@@ -159,6 +238,43 @@ func UpdateTranscript() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "transcript updated successfully"})
+	}
+}
+
+func UpdateApprovalTranscript() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		var request struct {
+			TranscriptIDs []string `json:"transcript_ids"`
+		}
+
+		if err := c.BindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+			return
+		}
+
+		objectIDs := make([]primitive.ObjectID, len(request.TranscriptIDs))
+		for i, id := range request.TranscriptIDs {
+			objectID, err := primitive.ObjectIDFromHex(id)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transcript ID format"})
+				return
+			}
+			objectIDs[i] = objectID
+		}
+
+		filter := bson.M{"_id": bson.M{"$in": objectIDs}}
+		update := bson.M{"$set": bson.M{"approval": true}}
+
+		result, err := transcriptCollection.UpdateMany(ctx, filter, update)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating transcripts"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Transcripts updated successfully", "modified_count": result.ModifiedCount})
 	}
 }
 

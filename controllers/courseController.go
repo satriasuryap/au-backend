@@ -128,15 +128,33 @@ func UpdateCourses() gin.HandlerFunc {
 			return
 		}
 
-		course.Academic_year = updateCourse.Academic_year
-		course.Class_code = updateCourse.Class_code
-		course.Course_code = updateCourse.Course_code
-		course.Degree = updateCourse.Degree
-		course.Department = updateCourse.Department
-		course.Instructor = updateCourse.Instructor
-		course.Name = updateCourse.Name
-		course.Semester = updateCourse.Semester
-		course.English = updateCourse.English
+		if updateCourse.Academic_year != nil {
+			course.Academic_year = updateCourse.Academic_year
+		}
+		if updateCourse.Class_code != nil {
+			course.Class_code = updateCourse.Class_code
+		}
+		if updateCourse.Course_code != nil {
+			course.Course_code = updateCourse.Course_code
+		}
+		if updateCourse.Degree != nil {
+			course.Degree = updateCourse.Degree
+		}
+		if updateCourse.Department != nil {
+			course.Department = updateCourse.Department
+		}
+		if updateCourse.Instructor != nil {
+			course.Instructor = updateCourse.Instructor
+		}
+		if updateCourse.Name != nil {
+			course.Name = updateCourse.Name
+		}
+		if updateCourse.Semester != nil {
+			course.Semester = updateCourse.Semester
+		}
+		if updateCourse.English != nil {
+			course.English = updateCourse.English
+		}
 
 		course.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 

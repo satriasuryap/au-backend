@@ -4,7 +4,7 @@ import (
 	"context"
 	"golang-au-backend/database"
 	"golang-au-backend/models"
-
+	"log"
 	"net/http"
 	"time"
 
@@ -17,6 +17,33 @@ import (
 
 var paymentCollection *mongo.Collection = database.OpenCollection(database.Client, "payment")
 
+func GetPayments() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		result, err := paymentCollection.Find(ctx, bson.M{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing payment items"})
+			return
+		}
+
+		defer result.Close(ctx)
+
+		var allPayments []bson.M
+		if err = result.All(ctx, &allPayments); err != nil {
+			log.Fatal(err)
+		}
+
+		if len(allPayments) == 0 {
+			c.JSON(http.StatusOK, gin.H{"message": "No payments found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, allPayments)
+	}
+}
+
 func GetPayment() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
@@ -28,7 +55,13 @@ func GetPayment() gin.HandlerFunc {
 
 		err := paymentCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&payment)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while fetching the payment"})
+			if err == mongo.ErrNoDocuments {
+				c.JSON(http.StatusOK, nil)
+			} else {
+				log.Printf("Error occurred while fetching the payment: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occurred while fetching the payment"})
+			}
+			return
 		}
 
 		c.JSON(http.StatusOK, payment)

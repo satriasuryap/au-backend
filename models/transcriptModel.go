@@ -12,6 +12,7 @@ type Transcript struct {
 	Taken_in   *string            `json:"taken_in"`
 	Course_id  *string            `json:"course_id"`
 	User_id    *string            `json:"user_id"`
+	Approval   *bool              `json:"approval"`
 	Created_at time.Time          `json:"created_at"`
 	Updated_at time.Time          `json:"updated_at"`
 }

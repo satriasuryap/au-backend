@@ -39,16 +39,7 @@ func GetUsers() gin.HandlerFunc {
 
 		skip := (page - 1) * recordPerPage
 
-		projection := bson.D{
-			{Key: "_id", Value: 1},
-			{Key: "full_name", Value: 1},
-			{Key: "email", Value: 1},
-			{Key: "avatar", Value: 1},
-			{Key: "is_admin", Value: 1},
-			{Key: "user_id", Value: 1},
-		}
-
-		cursor, err := userCollection.Find(ctx, bson.D{}, options.Find().SetProjection(projection).SetLimit(int64(recordPerPage)).SetSkip(int64(skip)))
+		cursor, err := userCollection.Find(ctx, bson.D{}, options.Find().SetLimit(int64(recordPerPage)).SetSkip(int64(skip)))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while listing user items"})
 			return
@@ -80,14 +71,7 @@ func GetUser() gin.HandlerFunc {
 
 		var user models.User
 
-		projection := bson.D{
-			{Key: "_id", Value: 1},
-			{Key: "full_name", Value: 1},
-			{Key: "email", Value: 1},
-			{Key: "user_id", Value: 1},
-		}
-
-		err := userCollection.FindOne(ctx, bson.M{"_id": objID}, options.FindOne().SetProjection(projection)).Decode(&user)
+		err := userCollection.FindOne(ctx, bson.M{"_id": objID}, options.FindOne()).Decode(&user)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing user items"})
 			return
@@ -275,10 +259,18 @@ func UpdateUser() gin.HandlerFunc {
 			return
 		}
 
-		user.Full_name = updateUser.Full_name
-		user.Email = updateUser.Email
-		user.Password = updateUser.Password
-		user.Avatar = updateUser.Avatar
+		if updateUser.Full_name != nil {
+			user.Full_name = updateUser.Full_name
+		}
+		if updateUser.Email != nil {
+			user.Email = updateUser.Email
+		}
+		if updateUser.Password != nil {
+			user.Password = updateUser.Password
+		}
+		if updateUser.Avatar != nil {
+			user.Avatar = updateUser.Avatar
+		}
 		user.Is_Admin = updateUser.Is_Admin
 		user.User_id = updateUser.User_id
 
