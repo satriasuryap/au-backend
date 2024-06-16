@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"golang-au-backend/database"
 	"golang-au-backend/models"
 	"log"
@@ -37,16 +36,16 @@ func GetApps() gin.HandlerFunc {
 		}
 
 		startIndex := (page - 1) * recordPerPage
-		startIndex, err = strconv.Atoi(c.Query("startIndex"))
+		startIndex, _ = strconv.Atoi(c.Query("startIndex"))
 
-		matchStage := bson.D{{"$match", bson.D{{}}}}
-		groupStage := bson.D{{"$group", bson.D{{"_id", bson.D{{"_id", "null"}}}, {"total_count", bson.D{{"$sum", 1}}}, {"data", bson.D{{"$push", "$$ROOT"}}}}}}
+		matchStage := bson.D{{Key: "$match", Value: bson.D{{}}}}
+		groupStage := bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "_id", Value: "null"}}}, {Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}}, {Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}}}}}
 		projectStage := bson.D{
 			{
-				"$project", bson.D{
-					{"_id", 0},
-					{"total_count", 1},
-					{"app_items", bson.D{{"$slice", []interface{}{"$data", startIndex, recordPerPage}}}},
+				Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "total_count", Value: 1},
+					{Key: "app_items", Value: bson.D{{Key: "$slice", Value: []interface{}{"$data", startIndex, recordPerPage}}}},
 				}}}
 
 		result, err := appCollection.Aggregate(ctx, mongo.Pipeline{
@@ -81,6 +80,7 @@ func GetApp() gin.HandlerFunc {
 func CreateApp() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 		var apps models.Apps
 
 		if err := c.BindJSON(&apps); err != nil {
@@ -101,8 +101,7 @@ func CreateApp() gin.HandlerFunc {
 
 		result, insertErr := appCollection.InsertOne(ctx, apps)
 		if insertErr != nil {
-			msg := fmt.Sprintf("Apps item was not created")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Apps item was not created"})
 			return
 		}
 		defer cancel()
@@ -112,7 +111,8 @@ func CreateApp() gin.HandlerFunc {
 
 func UpdateApp() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var ctx, _ = context.WithTimeout(context.Background(), 100*time.Second)
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 		var apps models.Apps
 
 		appsId := c.Param("apps_id")
@@ -125,15 +125,15 @@ func UpdateApp() gin.HandlerFunc {
 		var updateObj primitive.D
 
 		if apps.Name != nil {
-			updateObj = append(updateObj, bson.E{"name", apps.Name})
+			updateObj = append(updateObj, bson.E{Key: "name", Value: apps.Name})
 		}
 
 		if apps.Icon != nil {
-			updateObj = append(updateObj, bson.E{"apps_icon", apps.Icon})
+			updateObj = append(updateObj, bson.E{Key: "apps_icon", Value: apps.Icon})
 		}
 
 		apps.UpdatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		updateObj = append(updateObj, bson.E{"updatedat", apps.UpdatedAt})
+		updateObj = append(updateObj, bson.E{Key: "updatedat", Value: apps.UpdatedAt})
 
 		upsert := true
 		filter := bson.M{"apps_id": appsId}
@@ -146,14 +146,13 @@ func UpdateApp() gin.HandlerFunc {
 			ctx,
 			filter,
 			bson.D{
-				{"$set", updateObj},
+				{Key: "$set", Value: updateObj},
 			},
 			&opt,
 		)
 
 		if err != nil {
-			msg := fmt.Sprint("apps item update failed")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "apps item update failed"})
 			return
 		}
 		c.JSON(http.StatusOK, result)

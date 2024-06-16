@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"golang-au-backend/database"
 	"golang-au-backend/models"
 	"log"
@@ -52,6 +51,7 @@ func CreatePref() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var pref models.Prefs
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
 		if err := c.BindJSON(&pref); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -71,16 +71,11 @@ func CreatePref() gin.HandlerFunc {
 
 		result, insertErr := prefsCollection.InsertOne(ctx, pref)
 		if insertErr != nil {
-			msg := fmt.Sprintf("Menu item was not created")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Menu item was not created"})
 			return
 		}
 		defer cancel()
 		c.JSON(http.StatusOK, result)
 		defer cancel()
 	}
-}
-
-func inTimeSpan(start, end, check time.Time) bool {
-	return start.After(time.Now()) && end.After(start)
 }
